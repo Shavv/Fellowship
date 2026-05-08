@@ -1,0 +1,9 @@
+{
+  "name": "skyrim-multiplayer-mod",
+  "version": "1.0.0",
+  "dependencies": [
+    "commonlibsse-ng",
+    "enet"
+  ],
+  "builtin-baseline": "38f72a9de1fbb1fce45e851a704e43e595e34749"
+}

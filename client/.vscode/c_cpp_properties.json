@@ -1,0 +1,30 @@
+{
+    "configurations": [
+        {
+            "name": "Win32",
+            "includePath": [
+                "${workspaceFolder}/src/**",
+                "${workspaceFolder}/build/_deps/commonlibsse-src/include",
+                "${workspaceFolder}/build/_deps/commonlibsse-src/include/RE",
+                "${workspaceFolder}/build/_deps/commonlibsse-src/include/SKSE",
+                "${workspaceFolder}/build/vcpkg_installed/x64-windows/include",
+                "${workspaceFolder}/build/vcpkg_installed/x64-windows/include/**"
+            ],
+            "defines": [
+                "_DEBUG",
+                "UNICODE",
+                "_UNICODE",
+                "SKSE_SUPPORT_XBYAK=1",
+                "COMMONLIBSSE_SUPPORT_SKYRIMSE=1",
+                "COMMONLIBSSE_SUPPORT_SKYRIMAE=1"
+            ],
+            "windowsSdkVersion": "10.0.26100.0",
+            "compilerPath": "C:/Program Files (x86)/Microsoft Visual Studio/2022/BuildTools/VC/Tools/MSVC/14.44.35207/bin/Hostx64/x64/cl.exe",
+            "cStandard": "c17",
+            "cppStandard": "c++23",
+            "intelliSenseMode": "windows-msvc-x64",
+            "configurationProvider": "none"
+        }
+    ],
+    "version": 4
+}

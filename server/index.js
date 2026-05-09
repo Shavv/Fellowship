@@ -1,68 +1,78 @@
-const dgram = require('dgram');
+const enet = require('enet');
 
-const server = dgram.createSocket('udp4');
 const PORT = 3000;
+const HOST = '0.0.0.0';
 
-// Track connected clients: { address, port, lastUpdate, x, y, z, rot }
+// Track connected clients
 const clients = new Map();
 
-server.on('error', (err) => {
-    console.error(`Server error:\n${err.stack}`);
-    server.close();
-});
+enet.createServer({
+    address: { address: HOST, port: PORT },
+    peers: 32,
+    channels: 2,
+    down: 0,
+    up: 0
+}, function(err, server) {
+    if (err) {
+        console.error("Failed to create ENet server:", err);
+        process.exit(1);
+    }
 
-server.on('message', (msg, rinfo) => {
-    const clientKey = `${rinfo.address}:${rinfo.port}`;
-    
-    // Process incoming message (Assuming JSON for simplicity, though binary is better for games)
-    try {
-        const data = JSON.parse(msg.toString());
-        
-        // Update client state
+    console.log(`Skyrim Multiplayer Server (ENet) listening on ${HOST}:${PORT}`);
+
+    server.on("connect", function(peer, data) {
+        const clientKey = `${peer.address().address}:${peer.address().port}`;
+        console.log(`\n***************************************`);
+        console.log(`[CONNECT] New Client: ${clientKey}`);
+        console.log(`***************************************\n`);
+
+        // Register client
         clients.set(clientKey, {
-            address: rinfo.address,
-            port: rinfo.port,
-            lastUpdate: Date.now(),
-            x: data.x || 0,
-            y: data.y || 0,
-            z: data.z || 0,
-            rot: data.rot || 0
+            peer: peer,
+            id: clientKey,
+            x: 0, y: 0, z: 0, rot: 0
         });
 
-        // Broadcast this player's data to everyone else
-        const broadcastData = JSON.stringify({
-            id: clientKey, // simple identifier
-            x: data.x,
-            y: data.y,
-            z: data.z,
-            rot: data.rot
-        });
+        peer.on("message", function(packet, channel) {
+            try {
+                const msgString = packet.data().toString().replace(/\0/g, ''); 
+                const parsed = JSON.parse(msgString);
+                
+                // Only log pos once every few seconds to avoid spamming the console
+                if (parsed.type === "pos") {
+                    if (!this.lastPosLog || Date.now() - this.lastPosLog > 2000) {
+                        console.log(`[Server] Syncing ${clients.size} players... (Last from ${clientKey})`);
+                        this.lastPosLog = Date.now();
+                    }
+                } else {
+                    console.log(`[Server] Received ${parsed.type} from ${clientKey}`);
+                }
 
-        clients.forEach((client, key) => {
-            if (key !== clientKey) { // Don't send data back to the sender
-                server.send(broadcastData, client.port, client.address);
+                // Inject the sender's ID into the payload
+                parsed.id = clientKey;
+
+                const broadcastData = JSON.stringify(parsed);
+                const broadcastPacket = new enet.Packet(Buffer.from(broadcastData), enet.PACKET_FLAG.RELIABLE);
+                
+                clients.forEach((c, key) => {
+                    if (key !== clientKey) {
+                        console.log(`[Server] Broadcasting ${parsed.type} from ${clientKey} to ${key}`);
+                        c.peer.send(channel, broadcastPacket);
+                    }
+                });
+
+            } catch (e) {
+                console.error("Failed to parse client message:", packet.data().toString());
             }
         });
 
-    } catch (e) {
-        console.error('Failed to parse message:', msg.toString());
-    }
+        peer.on("disconnect", function() {
+            console.log(`\n[DISCONNECT] Client left: ${clientKey}`);
+            clients.delete(clientKey);
+            console.log(`Active Clients: ${clients.size}\n`);
+        });
+    });
+
+    // Start polling the host for events every 10ms
+    server.start(10);
 });
-
-server.on('listening', () => {
-    const address = server.address();
-    console.log(`Skyrim Multiplayer Server listening on ${address.address}:${address.port}`);
-});
-
-// Clean up disconnected clients (timeout after 5 seconds)
-setInterval(() => {
-    const now = Date.now();
-    for (const [key, client] of clients.entries()) {
-        if (now - client.lastUpdate > 5000) {
-            console.log(`Client disconnected: ${key}`);
-            clients.delete(key);
-        }
-    }
-}, 1000);
-
-server.bind(PORT);

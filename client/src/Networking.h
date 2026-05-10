@@ -38,6 +38,7 @@ namespace Multiplayer {
         uint16_t m_lastPort{0};
         bool m_connected{false};
         std::vector<std::string> m_notifications;
+        std::set<std::string> m_knownPlayers;
         std::recursive_mutex m_notificationMutex;
     };
 }

@@ -4,6 +4,7 @@
   "dependencies": [
     "enet",
     "spdlog",
-    "rapidcsv"
+    "rapidcsv",
+    "nlohmann-json"
   ]
 }

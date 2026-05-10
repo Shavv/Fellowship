@@ -15,6 +15,10 @@ FetchContent_Declare(
   GIT_TAG main
 )
 set(BUILD_TESTS OFF CACHE BOOL "Disable tests" FORCE)
+set(ENABLE_SKYRIM_SE ON CACHE BOOL "" FORCE)
+set(ENABLE_SKYRIM_AE ON CACHE BOOL "" FORCE)
+set(ENABLE_SKYRIM_VR ON CACHE BOOL "" FORCE)
+
 FetchContent_MakeAvailable(CommonLibSSE)
 
 add_library(Fellowship SHARED 
@@ -24,12 +28,23 @@ add_library(Fellowship SHARED
     src/ActorManager.cpp
 )
 
+find_package(nlohmann_json CONFIG REQUIRED)
+find_package(unofficial-enet CONFIG REQUIRED)
+
 target_link_libraries(Fellowship PRIVATE 
     CommonLibSSE::CommonLibSSE
     unofficial::enet::enet
+    nlohmann_json::nlohmann_json
     Ws2_32
     Winmm
 )
+
+target_compile_definitions(Fellowship PRIVATE
+    ENABLE_SKYRIM_AE
+    ENABLE_SKYRIM_SE
+    ENABLE_SKYRIM_VR
+)
+
 
 # Set the output name and suffix to match SKSE plugin standards
 set_target_properties(Fellowship PROPERTIES
@@ -37,5 +52,3 @@ set_target_properties(Fellowship PROPERTIES
     SUFFIX ".dll"
 )
 
-find_package(unofficial-enet CONFIG REQUIRED)
-target_link_libraries(Fellowship PRIVATE unofficial::enet::enet)

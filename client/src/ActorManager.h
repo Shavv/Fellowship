@@ -17,6 +17,9 @@ namespace Multiplayer {
         // Called every frame to actually apply movements (Skyrim engine isn't thread safe, 
         // so network thread queues data and game thread applies it)
         void ProcessMovementQueue();
+        
+        // Prints current sync status to console
+        void PrintSyncStatus();
 
     private:
         ActorManager() = default;
@@ -25,7 +28,7 @@ namespace Multiplayer {
             float x, y, z, rot;
             float targetX, targetY, targetZ, targetRot;
             uint32_t cellID, worldID;
-            RE::Actor* actorRef{nullptr};
+            RE::ObjectRefHandle actorHandle;
             bool needsSpawn{true};
             std::vector<std::string> pendingAnimations;
         };
@@ -33,6 +36,6 @@ namespace Multiplayer {
         std::unordered_map<std::string, PlayerData> m_remotePlayers;
         
         // Spawns a basic dummy actor
-        RE::Actor* SpawnDummyActor(float x, float y, float z, float rot);
+        RE::ObjectRefHandle SpawnDummyActor(float x, float y, float z, float rot);
     };
 }

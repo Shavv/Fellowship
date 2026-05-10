@@ -1,44 +1,41 @@
 # Fellowship: Skyrim Multiplayer Mod - Development State
 
 ## Project Overview
-A small-scale (2-5 player) Skyrim multiplayer mod focusing on stable multi-instance execution and real-time synchronization.
+A small-scale (2-5 player) Skyrim multiplayer mod focusing on high-fidelity synchronization and persistent progression.
 
 ## Technology Stack
 - **Client**: C++ (SKSE Plugin) using CommonLibSSE.
-- **Networking**: ENet (UDP) for low-latency position and animation syncing.
+- **Networking**: ENet (UDP) for low-latency sync.
+- **Data Format**: JSON (nlohmann-json) for extensible messaging.
 - **Server**: Node.js (ENet wrapper) for message broadcasting.
-- **Storage**: Firebase/Firestore (Initialized for persistent data, but not yet integrated into the sync loop).
+- **Storage**: Firebase/Firestore (Initialized, pending integration).
 
 ## Current Architecture
-### 1. Multi-Instance Stabilization
-- **Handle Spoofing**: Patches `GetModuleHandleA` to handle cases where the EXE is renamed (e.g., `SkyrimSE2.exe`).
-- **Mutex Management**: Bypasses the `Global\SkyrimSE` mutex and internal engine checks to allow multiple instances on a single Windows machine.
-- **Secondary User**: Uses a dedicated Windows account (`Fellowship`) to launch the second client instance via `Start-Process -Credential`.
-
-### 2. Synchronization
-- **Position**: Local player position (X, Y, Z, Rot) is broadcasted every 50ms.
-- **Animations**: `BSAnimationGraphEvent` hooks capture and broadcast animation tags.
+### 1. Synchronization
+- **Position**: Local player position (X, Y, Z, Rot) is broadcasted every 50ms with 2-decimal precision.
+- **Animations**: `BSAnimationGraphEvent` hooks capture and broadcast animation tags reliably.
 - **Dummy Actors**: Remote players are represented as dummy actors (cloned from the player base NPC) and interpolated between updates.
+- **Cell Awareness**: Basic cell/world tracking is implemented to hide/show players across interior/exterior transitions.
 
-### 3. Testing Automation
-- **Start-TestEnv.ps1**: Builds the plugin, starts the server, and launches two clients with a timed lifecycle and automated shutdown.
-- **Stop-TestEnv.ps1**: Force-kills all relevant processes.
+### 2. Development Tools
+- **Deploy.ps1**: Builds the plugin and deploys the DLL to the Skyrim directory.
+- **Server**: Run manually via `node server/index.js`.
 
 ## Workflow
-To run a test session:
-```powershell
-.\Start-TestEnv.ps1 -TestDuration 60
-```
+1. Run `.\Deploy.ps1` to build and install the plugin.
+2. Start the server in a separate terminal.
+3. Launch Skyrim via `skse64_loader.exe`.
 
 ## Recent Changes
-- Removed the automated `coc whiterun` trigger to allow manual save loading.
-- Implemented a countdown-based automation script for starting/stopping the environment.
-- Initialized Firebase/Firestore in the project root.
+- Removed all multi-instance stabilization hacks and tools.
+- Simplified the testing environment to focus on core multiplayer logic.
+- Integrated `nlohmann-json` for a more robust and extensible network protocol.
+- Cleaned up outdated auto-teleportation (COC) remnants.
 
 ## Pending Goals
+- [ ] **Combat Synchronization**: Broadcast hit events, blocks, and damage.
+- [ ] **Cell/World Transition**: Refine actor persistence when moving between distant interior cells.
 - [ ] **Firestore Integration**: Map player IDs to cloud profiles for persistent stats/inventory.
-- [ ] **Cell/World Transition**: Improve actor management when players move between interior and exterior cells.
-- [ ] **Combat Synchronization**: Broadcast hit events and damage.
 - [ ] **Physics/Object Sync**: Sync dropped items or moved objects.
 
 ---

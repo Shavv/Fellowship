@@ -1,0 +1,21 @@
+--- Server Started: 2026-05-09T23:13:30.486Z (PID: 6228) ---
+[2026-05-09T23:13:30.495Z] [WARN] Port 3000 is in use. Attempting to resolve...
+[2026-05-09T23:13:30.523Z] [INFO] Killing existing server process with PID 75444...
+[2026-05-09T23:13:31.679Z] [INFO] Skyrim Multiplayer Server (ENet) listening on 0.0.0.0:3000
+[2026-05-09T23:13:31.679Z] [INFO] Ready for connections. All incoming packets will be logged for debugging.
+[2026-05-09T23:15:02.485Z] [INFO] [Connect] Player joined from 127.0.0.1:54286
+[2026-05-09T23:15:15.537Z] [INFO] [Status] Active Players: 1
+[2026-05-09T23:15:30.539Z] [INFO] [Status] Active Players: 1
+[2026-05-09T23:15:45.544Z] [WARN] [Diagnostic] Client 127.0.0.1:54286 inactive for 30s. Connection may be dropped.
+[2026-05-09T23:15:45.546Z] [INFO] [Status] Active Players: 1
+[2026-05-09T23:16:00.545Z] [WARN] [Diagnostic] Client 127.0.0.1:54286 inactive for 30s. Connection may be dropped.
+[2026-05-09T23:16:00.546Z] [INFO] [Status] Active Players: 1
+[2026-05-09T23:16:15.551Z] [WARN] [Diagnostic] Client 127.0.0.1:54286 inactive for 30s. Connection may be dropped.
+[2026-05-09T23:16:15.551Z] [INFO] [Status] Active Players: 1
+[2026-05-09T23:16:30.565Z] [WARN] [Diagnostic] Client 127.0.0.1:54286 inactive for 30s. Connection may be dropped.
+[2026-05-09T23:16:30.565Z] [INFO] [Status] Active Players: 1
+[2026-05-09T23:16:45.573Z] [WARN] [Diagnostic] Client 127.0.0.1:54286 inactive for 30s. Connection may be dropped.
+[2026-05-09T23:16:45.573Z] [INFO] [Status] Active Players: 1
+[2026-05-09T23:17:00.575Z] [WARN] [Diagnostic] Client 127.0.0.1:54286 inactive for 30s. Connection may be dropped.
+[2026-05-09T23:17:00.576Z] [INFO] [Status] Active Players: 1
+[2026-05-09T23:17:08.751Z] [INFO] [Disconnect] Player 127.0.0.1:54286 left

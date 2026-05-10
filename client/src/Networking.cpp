@@ -1,7 +1,11 @@
 #include <SKSE/SKSE.h>
 #include <RE/Skyrim.h>
+#include <nlohmann/json.hpp>
+#include <set>
 #include "Networking.h"
 #include "ActorManager.h"
+
+using json = nlohmann::json;
 
 namespace Multiplayer {
     Networking& Networking::Get() {
@@ -27,16 +31,35 @@ namespace Multiplayer {
 
         SKSE::log::info("ENet initialized successfully.");
 
+        SKSE::log::info("Accessing UI singleton...");
+        /* 
+        // Temporarily disabled due to junk pointer crash (0x6e6576456563616c)
         auto ui = RE::UI::GetSingleton();
         if (ui) {
-            ui->GetEventSource<RE::MenuOpenCloseEvent>()->AddEventSink(this);
-            SKSE::log::info("Registered UI Menu Event Sink");
+            SKSE::log::info("UI singleton found at {:p}. Registering event sink...", (void*)ui);
+            auto* source = ui->GetEventSource<RE::MenuOpenCloseEvent>();
+            if (source) {
+                source->AddEventSink(this);
+                SKSE::log::info("Registered UI Menu Event Sink");
+            } else {
+                SKSE::log::error("Failed to get MenuOpenCloseEvent source");
+            }
+        } else {
+            SKSE::log::warn("UI singleton not found.");
         }
+        */
+        SKSE::log::info("UI registration skipped for diagnostics.");
 
         SKSE::log::info("About to start network thread...");
         m_running = true;
-        m_networkThread = std::thread(&Networking::NetworkLoop, this);
-        SKSE::log::info("Network thread started.");
+        try {
+            m_networkThread = std::thread(&Networking::NetworkLoop, this);
+            SKSE::log::info("Network thread started.");
+        } catch (const std::exception& e) {
+            SKSE::log::error("Failed to start network thread: {}", e.what());
+            m_running = false;
+            return false;
+        }
 
         return true;
     }
@@ -101,64 +124,54 @@ namespace Multiplayer {
         
         enet_deinitialize();
     }
+
     void Networking::NetworkLoop() {
         ENetEvent event;
         while (m_running) {
-            // Process networking
             if (enet_host_service(m_client, &event, 0) > 0) {
                 switch (event.type) {
                     case ENET_EVENT_TYPE_CONNECT:
                         m_connected = true;
-                        SKSE::log::info("Connected to server!");
-                        AddNotification("Connected to Fellowship Server!");
-                        
-
+                        SKSE::log::info("Fellowship: Connected to server!");
+                        AddNotification("Fellowship: Connected to server!");
                         break;
+
                     case ENET_EVENT_TYPE_RECEIVE: {
-                        std::string payload(reinterpret_cast<char*>(event.packet->data), event.packet->dataLength);
-                        
-                        auto get_value = [&](const std::string& key) -> std::string {
-                            size_t pos = payload.find("\"" + key + "\":");
-                            if (pos == std::string::npos) return "";
-                            pos += key.length() + 3;
-                            if (payload[pos] == '\"') {
-                                pos++;
-                                size_t end = payload.find("\"", pos);
-                                return payload.substr(pos, end - pos);
-                            } else {
-                                size_t end = payload.find_first_of(",}", pos);
-                                return payload.substr(pos, end - pos);
-                            }
-                        };
-
-                        std::string id = get_value("id");
-                        std::string type = get_value("type");
-
-                        if (type == "pos") {
-                            float x = std::strtof(get_value("x").c_str(), nullptr);
-                            float y = std::strtof(get_value("y").c_str(), nullptr);
-                            float z = std::strtof(get_value("z").c_str(), nullptr);
-                            float rot = std::strtof(get_value("rot").c_str(), nullptr);
-                            uint32_t cellID = (uint32_t)std::stoul(get_value("cell").empty() ? "0" : get_value("cell"));
-                            uint32_t worldID = (uint32_t)std::stoul(get_value("world").empty() ? "0" : get_value("world"));
+                        try {
+                            std::string payload(reinterpret_cast<char*>(event.packet->data), event.packet->dataLength);
+                            auto j = json::parse(payload);
                             
-                            static std::string lastId = "";
-                            if (id != lastId) {
-                                SKSE::log::info("Receiving data from new player: {}", id);
-                                AddNotification("Player Joined: " + id);
-                                lastId = id;
-                            }
+                            std::string id = j.value("id", "unknown");
+                            std::string type = j.value("type", "");
 
-                            ActorManager::Get().UpdateRemotePlayer(id, x, y, z, rot, cellID, worldID);
-                        } else if (type == "anim") {
-                            std::string animEvent = get_value("event");
-                            SKSE::log::info("Anim from {}: {}", id, animEvent);
-                            ActorManager::Get().PlayRemoteAnimation(id, animEvent);
+                            if (type == "pos") {
+                                float x = j.value("x", 0.0f);
+                                float y = j.value("y", 0.0f);
+                                float z = j.value("z", 0.0f);
+                                float rot = j.value("rot", 0.0f);
+                                uint32_t cellID = j.value("cell", 0u);
+                                uint32_t worldID = j.value("world", 0u);
+                                
+                                if (m_knownPlayers.find(id) == m_knownPlayers.end()) {
+                                    SKSE::log::info("Player discovered: {}", id);
+                                    AddNotification("Player Joined: " + id);
+                                    m_knownPlayers.insert(id);
+                                }
+                                
+                                ActorManager::Get().UpdateRemotePlayer(id, x, y, z, rot, cellID, worldID);
+                            } else if (type == "anim") {
+                                std::string animEvent = j.value("event", "");
+                                SKSE::log::info("Anim from {}: {}", id, animEvent);
+                                ActorManager::Get().PlayRemoteAnimation(id, animEvent);
+                            }
+                        } catch (const std::exception& e) {
+                            SKSE::log::error("Failed to parse network packet: {}", e.what());
                         }
 
                         enet_packet_destroy(event.packet);
                         break;
                     }
+
                     case ENET_EVENT_TYPE_DISCONNECT:
                         SKSE::log::info("Disconnected from server.");
                         m_peer = nullptr;
@@ -166,7 +179,6 @@ namespace Multiplayer {
                         break;
                 }
             } else {
-                // If we are not connected and not currently connecting, try to reconnect
                 if (m_peer == nullptr && !m_lastHost.empty()) {
                     static auto lastReconnectAttempt = std::chrono::steady_clock::now();
                     auto now = std::chrono::steady_clock::now();
@@ -187,7 +199,19 @@ namespace Multiplayer {
     }
 
     void Networking::SendPositionUpdate(float x, float y, float z, float rot) {
-        if (!m_peer || m_peer->state != ENET_PEER_STATE_CONNECTED) return;
+        if (!m_peer) return;
+        if (m_peer->state != ENET_PEER_STATE_CONNECTED) {
+            static uint32_t peerStateLog = 0;
+            if (++peerStateLog % 100 == 0) {
+                SKSE::log::info("Peer not connected (state: {}), cannot send position.", (int)m_peer->state);
+            }
+            return;
+        }
+
+        static uint32_t sendCount = 0;
+        if (++sendCount % 100 == 0) {
+            SKSE::log::info("Sending position: [{:.1f}, {:.1f}, {:.1f}] rot: {:.1f}", x, y, z, rot);
+        }
 
         auto player = RE::PlayerCharacter::GetSingleton();
         uint32_t cellID = 0;
@@ -201,9 +225,16 @@ namespace Multiplayer {
             if (world) worldID = world->GetFormID();
         }
 
-        std::string payload = std::format("{{\"type\":\"pos\",\"x\":{:.2f},\"y\":{:.2f},\"z\":{:.2f},\"rot\":{:.2f},\"cell\":{},\"world\":{}}}", 
-            x, y, z, rot, cellID, worldID);
-        
+        json j;
+        j["type"] = "pos";
+        j["x"] = std::round(x * 100.0f) / 100.0f;
+        j["y"] = std::round(y * 100.0f) / 100.0f;
+        j["z"] = std::round(z * 100.0f) / 100.0f;
+        j["rot"] = std::round(rot * 100.0f) / 100.0f;
+        j["cell"] = cellID;
+        j["world"] = worldID;
+
+        std::string payload = j.dump();
         ENetPacket* packet = enet_packet_create(payload.c_str(), payload.length() + 1, ENET_PACKET_FLAG_UNSEQUENCED);
         enet_peer_send(m_peer, 0, packet);
     }
@@ -211,9 +242,11 @@ namespace Multiplayer {
     void Networking::SendAnimationUpdate(const std::string& animEvent) {
         if (!m_peer || m_peer->state != ENET_PEER_STATE_CONNECTED) return;
 
-        std::string payload = std::format("{{\"type\":\"anim\",\"event\":\"{}\"}}", animEvent);
-        
-        // Animations should be reliable so they don't get dropped
+        json j;
+        j["type"] = "anim";
+        j["event"] = animEvent;
+
+        std::string payload = j.dump();
         ENetPacket* packet = enet_packet_create(payload.c_str(), payload.length() + 1, ENET_PACKET_FLAG_RELIABLE);
         enet_peer_send(m_peer, 0, packet);
     }
@@ -224,14 +257,24 @@ namespace Multiplayer {
     }
 
     void Networking::ProcessNotifications() {
-
-
         std::lock_guard<std::recursive_mutex> lock(m_notificationMutex);
+        if (m_notifications.empty()) return;
+
+        auto console = RE::ConsoleLog::GetSingleton();
+        
+        // Safety check for junk pointer (e.g. 0x6e6576456563616c)
+        bool consoleValid = false;
+        if (console) {
+            uintptr_t addr = reinterpret_cast<uintptr_t>(console);
+            // Valid pointers in Skyrim are usually in the module range
+            if (addr > 0x1000 && addr < 0x00007FFFFFFFFFFF) {
+                consoleValid = true;
+            }
+        }
+
         for (const auto& msg : m_notifications) {
             RE::DebugNotification(msg.c_str());
-            
-            auto console = RE::ConsoleLog::GetSingleton();
-            if (console) {
+            if (consoleValid) {
                 console->Print("[Fellowship] %s", msg.c_str());
             }
         }

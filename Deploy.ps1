@@ -53,19 +53,36 @@ try {
     }
 
     Copy-Item $PluginSrc $PluginDest -Force
-    Write-Host "Plugin deployed successfully!" -ForegroundColor Green
+    
+    # Copy dependency DLLs to Skyrim root
+    Write-Host "Copying dependency DLLs to Skyrim root..." -ForegroundColor Yellow
+    Get-ChildItem -Path (Split-Path $PluginSrc) -Filter "*.dll" | Where-Object { $_.Name -ne "Fellowship.dll" } | ForEach-Object {
+        $dest = Join-Path $SkyrimDir $_.Name
+        Copy-Item $_.FullName $dest -Force
+        Write-Host "  Deployed dependency: $($_.Name)"
+    }
+
+    Write-Host "Plugin and dependencies deployed successfully!" -ForegroundColor Green
 
 } catch {
     Write-Error "Deployment failed: $_"
 } finally {
     # 3. Handle Server
+    Write-Host "Restarting Server to ensure window is visible..." -ForegroundColor Cyan
+    
+    # Try to close existing window by title
+    $windowTitle = "Fellowship Server"
+    Get-Process | Where-Object { $_.MainWindowTitle -eq $windowTitle } | Stop-Process -Force -ErrorAction SilentlyContinue
+
     $portProcess = Get-NetUDPEndpoint -LocalPort 3000 -ErrorAction SilentlyContinue
     if ($portProcess) {
-        Write-Host "Server is already running on port 3000. (PID: $($portProcess.OwningProcess))" -ForegroundColor Gray
-    } else {
-        Write-Host "Starting Server in new window..." -ForegroundColor Cyan
-        Start-Process cmd.exe -ArgumentList "/k cd /d e:\Projects\Fellowship\server && node index.js"
+        Write-Host "Killing existing process on port 3000 (PID: $($portProcess.OwningProcess))..." -ForegroundColor Gray
+        Stop-Process -Id $portProcess.OwningProcess -Force -ErrorAction SilentlyContinue
+        Start-Sleep -Seconds 1
     }
+    
+    Write-Host "Starting Server in new window..." -ForegroundColor Cyan
+    Start-Process cmd.exe -ArgumentList "/k title $windowTitle && cd /d $ProjectDir\server && node --no-warnings index.js"
     
     Set-Location $ProjectDir
 }

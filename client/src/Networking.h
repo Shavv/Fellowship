@@ -1,17 +1,22 @@
 #pragma once
+#include <SKSE/SKSE.h>
+#include <RE/Skyrim.h>
 #include <enet/enet.h>
+#include <nlohmann/json.hpp>
 #include <thread>
 #include <atomic>
 #include <string>
 #include <vector>
+#include <set>
 #include <mutex>
 
 namespace Multiplayer {
     class Networking : public RE::BSTEventSink<RE::MenuOpenCloseEvent> {
     public:
         static Networking& Get();
-
         bool Initialize();
+        std::string NormalizeID(const std::string& id);
+        std::string GetMyId();
         void Connect(const std::string& host, uint16_t port);
         void Disconnect();
 
@@ -22,13 +27,14 @@ namespace Multiplayer {
         void AddNotification(const std::string& msg);
 
         void SendPositionUpdate(float x, float y, float z, float rot);
-        void SendAnimationUpdate(const std::string& animEvent);
+        void SendSpawnLog(const std::string& remoteId);
 
     private:
         Networking() = default;
         ~Networking();
 
         void NetworkLoop();
+        void HandlePacket(const std::string& id, const nlohmann::json& j);
 
         ENetHost*  m_client{nullptr};
         ENetPeer*  m_peer{nullptr};
@@ -37,8 +43,12 @@ namespace Multiplayer {
         std::string m_lastHost;
         uint16_t m_lastPort{0};
         bool m_connected{false};
+        std::string m_myId;
         std::vector<std::string> m_notifications;
+        std::vector<std::string> m_consoleQueue;
         std::set<std::string> m_knownPlayers;
         std::recursive_mutex m_notificationMutex;
+        std::mutex m_enetMutex;
+        std::mutex m_myIdMutex;
     };
 }

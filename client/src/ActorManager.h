@@ -1,6 +1,7 @@
 #pragma once
 #include <string>
 #include <unordered_map>
+#include <vector>
 #include <RE/Skyrim.h>
 
 namespace Multiplayer {
@@ -8,18 +9,13 @@ namespace Multiplayer {
     public:
         static ActorManager& Get();
 
-        // Called when network data is received
-        void UpdateRemotePlayer(const std::string& id, float x, float y, float z, float rot, uint32_t cellID, uint32_t worldID);
-        
-        // Called when network data receives an animation event
-        void PlayRemoteAnimation(const std::string& id, const std::string& animEvent);
-        
-        // Called every frame to actually apply movements (Skyrim engine isn't thread safe, 
-        // so network thread queues data and game thread applies it)
+        void UpdateRemotePlayer(const std::string& id, float x, float y, float z, float rot, float vx, float vy, float vz, uint32_t cellID, uint32_t worldID);
+        void RemovePlayer(const std::string& id);
+        bool IsTracking(const std::string& id);
+
+        std::string GetIdFromHandle(RE::ObjectRefHandle handle);
         void ProcessMovementQueue();
-        
-        // Prints current sync status to console
-        void PrintSyncStatus();
+        void CleanupOrphans();
 
     private:
         ActorManager() = default;
@@ -27,15 +23,13 @@ namespace Multiplayer {
         struct PlayerData {
             float x, y, z, rot;
             float targetX, targetY, targetZ, targetRot;
+            float vx{0}, vy{0}, vz{0};
             uint32_t cellID, worldID;
             RE::ObjectRefHandle actorHandle;
             bool needsSpawn{true};
-            std::vector<std::string> pendingAnimations;
         };
 
         std::unordered_map<std::string, PlayerData> m_remotePlayers;
-        
-        // Spawns a basic dummy actor
         RE::ObjectRefHandle SpawnDummyActor(float x, float y, float z, float rot);
     };
 }

@@ -93,7 +93,25 @@ function startServer() {
 
         server.on("connect", function(peer, data) {
             const addr = peer.address();
-            const clientKey = `${addr.address}:${addr.port}`;
+            const ip = addr.address;
+            const clientKey = `${ip}:${addr.port}`;
+            
+            // ONE-PLAYER-PER-IP RULE:
+            // Check if there is already a client with this same IP.
+            // If so, it's likely a reconnecting player whose old session is a 'ghost'.
+            const normalizeIp = (ipStr) => ipStr.startsWith('::ffff:') ? ipStr.substring(7) : ipStr;
+            const normIp = normalizeIp(ip);
+            
+            clients.forEach((c, key) => {
+                const lastColon = key.lastIndexOf(':');
+                const oldIp = normalizeIp(key.substring(0, lastColon));
+                if (oldIp === normIp && key !== clientKey) {
+                    logger(`[Connect] Kicking ghost session ${key} to allow new connection from ${clientKey}`, 'WARN');
+                    c.peer.disconnectNow();
+                    clients.delete(key);
+                }
+            });
+
             logger(`[Connect] Player joined from ${clientKey}`);
 
             clients.set(clientKey, {
@@ -103,6 +121,11 @@ function startServer() {
                 lastSeen: Date.now(),
                 packetCount: 0
             });
+
+            // Send welcome packet with ID
+            const welcome = JSON.stringify({ type: "welcome", id: clientKey });
+            const welcomePacket = new enet.Packet(Buffer.from(welcome), enet.PACKET_FLAG.RELIABLE);
+            peer.send(0, welcomePacket);
 
             peer.on("message", function(packet, channel) {
                 try {
@@ -123,14 +146,14 @@ function startServer() {
                             client.y = parsed.y;
                             client.z = parsed.z;
                             client.rot = parsed.rot;
+                            client.cell = parsed.cell;
+                            client.world = parsed.world;
                         }
 
-                        // Log every 10th packet for now to see real-time updates without too much flood
-                        if (client.packetCount % 10 === 0) {
-                            logger(`[Sync] ${clientKey} pos: (${parsed.x}, ${parsed.y}, ${parsed.z}) cell: ${parsed.cell || 0}`);
-                        }
-                    } else if (parsed.type === "anim") {
-                        logger(`[Anim] ${clientKey} triggered: ${parsed.event}`);
+                        // Sync notifications are now hidden (not logged to console) to reduce spam.
+
+                    } else if (parsed.type === "spawn_log") {
+                        logger(`[Client-Log] ${clientKey} reporting: ${parsed.msg}`, 'SUCCESS');
                     } else {
                         logger(`[Event] ${clientKey} sent ${parsed.type}: ${JSON.stringify(parsed)}`);
                     }

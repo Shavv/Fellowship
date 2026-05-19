@@ -1,6 +1,6 @@
 # Fellowship: Skyrim Multiplayer Mod
 
-Fellowship is a small-scale (2-5 player) multiplayer mod for Skyrim Special Edition / Anniversary Edition. It focuses on high-fidelity position and animation synchronization using ENet (UDP) for low latency.
+Fellowship is a small-scale (2-5 player) multiplayer mod for Skyrim Special Edition / Anniversary Edition. It focuses on high-fidelity position synchronization using ENet (UDP) for low latency.
 
 ## Prerequisites
 
